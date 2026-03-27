@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.*;
 
 public class Notify {
-    public static final String VERSION      = "0.4.0";
+    public static final String VERSION      = "0.4.1";
     private static final String WEBHOOK_URL = "https://hook.notilens.com/webhook/%s/send";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

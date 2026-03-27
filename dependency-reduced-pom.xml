@@ -4,7 +4,7 @@
   <groupId>com.notilens</groupId>
   <artifactId>notilens</artifactId>
   <name>NotiLens SDK</name>
-  <version>0.4.0</version>
+  <version>0.4.1</version>
   <description>Task lifecycle notifications for AI agents and background jobs</description>
   <url>https://github.com/notilens/sdk-java</url>
   <developers>
