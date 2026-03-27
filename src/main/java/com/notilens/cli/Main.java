@@ -20,21 +20,21 @@ public class Main {
             case "init"          -> runInit(rest);
             case "agents"        -> runAgents();
             case "remove-agent"  -> runRemoveAgent(rest);
-            case "task.queue"    -> runTaskQueue(rest);
-            case "task.start"    -> runTaskStart(rest);
-            case "task.progress" -> runWithMsg(rest, "task.progress");
-            case "task.loop"     -> runTaskLoop(rest);
-            case "task.retry"    -> runTaskRetry(rest);
-            case "task.stop"     -> runTaskStop(rest);
-            case "task.pause"    -> runTaskPause(rest);
-            case "task.resume"   -> runTaskResume(rest);
-            case "task.wait"     -> runTaskWait(rest);
-            case "task.error"    -> runTaskError(rest);
-            case "task.fail"     -> runTerminal(rest, "task.failed");
-            case "task.timeout"  -> runTerminal(rest, "task.timeout");
-            case "task.cancel"   -> runTerminal(rest, "task.cancelled");
-            case "task.terminate"-> runTerminal(rest, "task.terminated");
-            case "task.complete" -> runTerminal(rest, "task.completed");
+            case "queue"    -> runTaskQueue(rest);
+            case "start"    -> runTaskStart(rest);
+            case "progress" -> runWithMsg(rest, "task.progress");
+            case "loop"     -> runTaskLoop(rest);
+            case "retry"    -> runTaskRetry(rest);
+            case "stop"     -> runTaskStop(rest);
+            case "pause"    -> runTaskPause(rest);
+            case "resume"   -> runTaskResume(rest);
+            case "wait"     -> runTaskWait(rest);
+            case "error"    -> runTaskError(rest);
+            case "fail"     -> runTerminal(rest, "task.failed");
+            case "timeout"  -> runTerminal(rest, "task.timeout");
+            case "cancel"   -> runTerminal(rest, "task.cancelled");
+            case "terminate"-> runTerminal(rest, "task.terminated");
+            case "complete" -> runTerminal(rest, "task.completed");
             case "metric"        -> runMetric(rest);
             case "metric.reset"  -> runMetricReset(rest);
             case "output.generate" -> runSimple(rest, "output.generated");
@@ -414,7 +414,7 @@ public class Main {
         if (f.taskLabel.isEmpty()) { err("❌ --task is required"); System.exit(1); }
         String runId = State.readPointer(f.agent, f.taskLabel);
         if (runId.isEmpty()) {
-            err("❌ No active run for task '" + f.taskLabel + "' on agent '" + f.agent + "'. Run task.start first.");
+            err("❌ No active run for task '" + f.taskLabel + "' on agent '" + f.agent + "'. Run start first.");
             System.exit(1);
         }
         return runId;
@@ -458,21 +458,21 @@ Usage:
   notilens remove-agent <agent>
 
 Task Lifecycle:
-  notilens task.queue           --agent <agent> --task <label>
-  notilens task.start           --agent <agent> --task <label>
-  notilens task.progress  "msg" --agent <agent> --task <label>
-  notilens task.loop      "msg" --agent <agent> --task <label>
-  notilens task.retry           --agent <agent> --task <label>
-  notilens task.stop            --agent <agent> --task <label>
-  notilens task.pause     "msg" --agent <agent> --task <label>
-  notilens task.resume    "msg" --agent <agent> --task <label>
-  notilens task.wait      "msg" --agent <agent> --task <label>
-  notilens task.error     "msg" --agent <agent> --task <label>
-  notilens task.fail      "msg" --agent <agent> --task <label>
-  notilens task.timeout   "msg" --agent <agent> --task <label>
-  notilens task.cancel    "msg" --agent <agent> --task <label>
-  notilens task.terminate "msg" --agent <agent> --task <label>
-  notilens task.complete  "msg" --agent <agent> --task <label>
+  notilens queue           --agent <agent> --task <label>
+  notilens start           --agent <agent> --task <label>
+  notilens progress  "msg" --agent <agent> --task <label>
+  notilens loop      "msg" --agent <agent> --task <label>
+  notilens retry           --agent <agent> --task <label>
+  notilens stop            --agent <agent> --task <label>
+  notilens pause     "msg" --agent <agent> --task <label>
+  notilens resume    "msg" --agent <agent> --task <label>
+  notilens wait      "msg" --agent <agent> --task <label>
+  notilens error     "msg" --agent <agent> --task <label>
+  notilens fail      "msg" --agent <agent> --task <label>
+  notilens timeout   "msg" --agent <agent> --task <label>
+  notilens cancel    "msg" --agent <agent> --task <label>
+  notilens terminate "msg" --agent <agent> --task <label>
+  notilens complete  "msg" --agent <agent> --task <label>
 
 Output / Input:
   notilens output.generate "msg" --agent <agent> --task <label>
