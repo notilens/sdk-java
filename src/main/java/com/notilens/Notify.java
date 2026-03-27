@@ -9,9 +9,14 @@ import java.time.Duration;
 import java.util.*;
 
 public class Notify {
-    public static final String VERSION     = "0.3.0";
+    public static final String VERSION      = "0.4.0";
     private static final String WEBHOOK_URL = "https://hook.notilens.com/webhook/%s/send";
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    // Shared client — reused across all sends
+    private static final HttpClient CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     private static final Set<String> SUCCESS_EVENTS = new HashSet<>(Arrays.asList(
             "task.completed", "output.generated", "input.approved"));
@@ -20,7 +25,7 @@ public class Notify {
             "task.failed", "task.timeout", "task.error", "task.terminated", "output.failed"));
 
     private static final Set<String> WARNING_EVENTS = new HashSet<>(Arrays.asList(
-            "task.retry", "task.cancelled", "input.required", "input.rejected"));
+            "task.retry", "task.cancelled", "task.paused", "task.waiting", "input.required", "input.rejected"));
 
     private static final Set<String> ACTIONABLE_EVENTS = new HashSet<>(Arrays.asList(
             "task.error", "task.failed", "task.timeout", "task.retry", "task.loop",
@@ -42,10 +47,6 @@ public class Notify {
             String url  = String.format(WEBHOOK_URL, token);
             String body = MAPPER.writeValueAsString(payload);
 
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(10))
-                    .build();
-
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(10))
@@ -55,7 +56,8 @@ public class Notify {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            client.send(req, HttpResponse.BodyHandlers.discarding());
+            // Fire-and-forget — never blocks the caller
+            CLIENT.sendAsync(req, HttpResponse.BodyHandlers.discarding());
         } catch (Exception ignored) {}
     }
 }

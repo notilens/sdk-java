@@ -9,18 +9,18 @@ Java SDK and CLI for [NotiLens](https://notilens.com) — task lifecycle notific
 <dependency>
   <groupId>com.notilens</groupId>
   <artifactId>notilens</artifactId>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
 **Gradle (Kotlin DSL):**
 ```kotlin
-implementation("com.notilens:notilens:0.3.0")
+implementation("com.notilens:notilens:0.4.0")
 ```
 
 **Gradle (Groovy):**
 ```groovy
-implementation 'com.notilens:notilens:0.3.0'
+implementation 'com.notilens:notilens:0.4.0'
 ```
 
 ## Quick Start
@@ -30,9 +30,10 @@ implementation 'com.notilens:notilens:0.3.0'
 import com.notilens.NotiLens;
 
 NotiLens nl = NotiLens.init("my-agent");
-String taskId = nl.taskStart();
-nl.taskProgress("Processing...", taskId);
-nl.taskComplete("Done!", taskId);
+NotiLens.Run run = nl.task("report");
+run.start();
+run.progress("Processing...");
+run.complete("Done!");
 ```
 
 **Kotlin:**
@@ -40,9 +41,10 @@ nl.taskComplete("Done!", taskId);
 import com.notilens.NotiLens
 
 val nl = NotiLens.init("my-agent")
-val taskId = nl.taskStart()
-nl.taskProgress("Processing...", taskId)
-nl.taskComplete("Done!", taskId)
+val run = nl.task("report")
+run.start()
+run.progress("Processing...")
+run.complete("Done!")
 ```
 
 ## Credentials
@@ -54,54 +56,129 @@ Resolved in order:
 
 ```java
 NotiLens nl = NotiLens.init("my-agent", "your-token", "your-secret");
+
+// With state_ttl (optional — orphaned state TTL in seconds, default: 86400)
+NotiLens nl = NotiLens.init("my-agent", "your-token", "your-secret", 86400);
 ```
 
 ## SDK Reference
 
 ### Task Lifecycle
 
-```java
-String taskId = nl.taskStart();                         // auto-generated ID
-String taskId = nl.taskStart("my-task-123");            // custom ID
+`nl.task(label)` creates a `Run` — an isolated execution context. Multiple concurrent runs of the same label never conflict.
 
-nl.taskProgress("Fetching data...", taskId);
-nl.taskLoop("Processing item 42", taskId);
-nl.taskRetry(taskId);
-nl.taskStop(taskId);
-nl.taskError("Quota exceeded", taskId);                 // non-fatal
-nl.taskComplete("All done!", taskId);                   // terminal
-nl.taskFail("Unrecoverable error", taskId);             // terminal
-nl.taskTimeout("Timed out after 5m", taskId);           // terminal
-nl.taskCancel("Cancelled by user", taskId);             // terminal
-nl.taskTerminate("Force-killed", taskId);               // terminal
+```java
+NotiLens.Run run = nl.task("email");  // create a run for the "email" task
+run.queue();                          // optional — pre-start signal
+
+run.start();                          // begin the run
+
+run.progress("Fetching data...");
+run.loop("Processing item 42");
+run.retry();
+run.pause("Waiting for rate limit");
+run.resume("Resuming work");
+run.wait("Waiting for tool response");
+run.stop();
+run.error("Quota exceeded");          // non-fatal, run continues
+
+// Terminal — pick one
+run.complete("All done!");
+run.fail("Unrecoverable error");
+run.timeout("Timed out after 5m");
+run.cancel("Cancelled by user");
+run.terminate("Force-killed");
 ```
 
 ### Output & Input Events
 
 ```java
-nl.outputGenerated("Report ready", taskId);
-nl.outputFailed("Rendering failed", taskId);
+run.outputGenerated("Report ready");
+run.outputFailed("Rendering failed");
 
-nl.inputRequired("Approve deployment?", taskId);
-nl.inputApproved("Approved", taskId);
-nl.inputRejected("Rejected", taskId);
+run.inputRequired("Approve deployment?");
+run.inputApproved("Approved");
+run.inputRejected("Rejected");
 ```
 
 ### Metrics
 
-```java
-nl.metric("tokens", 512);
-nl.metric("tokens", 128);       // now 640
+Numeric values accumulate; strings are replaced.
 
-nl.resetMetrics("tokens");      // reset one key
-nl.resetMetrics();              // reset all
+```java
+run.metric("tokens", 512);
+run.metric("tokens", 128);      // now 640
+run.metric("cost", 0.003);
+
+run.resetMetrics("tokens");     // reset one key
+run.resetMetrics();             // reset all
 ```
+
+Agent-level metrics (included in every send):
+
+```java
+nl.metric("total_cost", 0.01);
+nl.resetMetrics();
+```
+
+### Automatic Timing
+
+NotiLens automatically tracks task timing. These fields are included in every notification's `meta` payload when non-zero:
+
+| Field | Description |
+|-------|-------------|
+| `total_duration_ms` | Wall-clock time since `start` |
+| `queue_ms` | Time between `queue` and `start` |
+| `pause_ms` | Cumulative time spent paused |
+| `wait_ms` | Cumulative time spent waiting |
+| `active_ms` | Active time (`total − pause − wait`) |
 
 ### Generic Events
 
 ```java
-nl.emit("custom.event", "Something happened");
-nl.emit("custom.event", "With meta", Map.of("key", "value"));
+nl.track("custom.event", "Something happened");
+nl.track("custom.event", "With meta", Map.of("key", "value"));
+
+run.track("custom.event", "Run-level event");
+run.track("custom.event", "With meta", Map.of("key", "value"));
+```
+
+### Full Example
+
+**Java:**
+```java
+import com.notilens.NotiLens;
+
+NotiLens nl = NotiLens.init("summarizer", "TOKEN", "SECRET");
+NotiLens.Run run = nl.task("report");
+run.start();
+
+try {
+    String result = llm.complete(prompt);
+    run.metric("tokens", result.usage().totalTokens());
+    run.outputGenerated("Summary ready");
+    run.complete("All done!");
+} catch (Exception e) {
+    run.fail(e.getMessage());
+}
+```
+
+**Kotlin:**
+```kotlin
+import com.notilens.NotiLens
+
+val nl = NotiLens.init("summarizer", "TOKEN", "SECRET")
+val run = nl.task("report")
+run.start()
+
+runCatching {
+    val result = llm.complete(prompt)
+    run.metric("tokens", result.usage.totalTokens)
+    run.outputGenerated("Summary ready")
+    run.complete("All done!")
+}.onFailure { e ->
+    run.fail(e.message ?: "Unknown error")
+}
 ```
 
 ## CLI
@@ -115,17 +192,52 @@ echo '#!/bin/sh\nexec java -jar /usr/local/lib/notilens-cli.jar "$@"' > /usr/loc
 chmod +x /usr/local/bin/notilens
 ```
 
-### Commands
+### Configure
 
 ```bash
 notilens init --agent my-agent --token TOKEN --secret SECRET
-notilens task.start    --agent my-agent --task job-123
-notilens task.complete "Done!" --agent my-agent --task job-123
-notilens metric        tokens=512 --agent my-agent --task job-123
+notilens agents
+notilens remove-agent my-agent
+```
+
+### Commands
+
+`--task` is a semantic label (e.g. `email`, `report`). Each `task.start` creates an isolated run internally — concurrent executions of the same label never conflict.
+
+```bash
+notilens task.queue                      --agent my-agent --task email
+notilens task.start                      --agent my-agent --task email
+notilens task.progress  "Fetching data"  --agent my-agent --task email
+notilens task.loop      "Item 5/100"     --agent my-agent --task email
+notilens task.retry                      --agent my-agent --task email
+notilens task.pause     "Rate limited"   --agent my-agent --task email
+notilens task.resume    "Resuming"       --agent my-agent --task email
+notilens task.wait      "Awaiting tool"  --agent my-agent --task email
+notilens task.stop                       --agent my-agent --task email
+notilens task.error     "Quota hit"      --agent my-agent --task email
+notilens task.fail      "Fatal error"    --agent my-agent --task email
+notilens task.timeout   "Timed out"      --agent my-agent --task email
+notilens task.cancel    "Cancelled"      --agent my-agent --task email
+notilens task.terminate "Force stop"     --agent my-agent --task email
+notilens task.complete  "Done!"          --agent my-agent --task email
+
+notilens output.generate "Report ready"  --agent my-agent --task email
+notilens output.fail     "Render failed" --agent my-agent --task email
+notilens input.required  "Approve?"      --agent my-agent --task email
+notilens input.approve   "Approved"      --agent my-agent --task email
+notilens input.reject    "Rejected"      --agent my-agent --task email
+
+notilens metric       tokens=512 cost=0.003 --agent my-agent --task email
+notilens metric.reset tokens               --agent my-agent --task email
+notilens metric.reset                      --agent my-agent --task email
+
+notilens track my.event "Something happened" --agent my-agent
 notilens version
 ```
 
+`task.start` prints the internal `run_id` to stdout.
+
 ## Requirements
 
-- Java 11+
+- Java 17+
 - One dependency: `jackson-databind`
